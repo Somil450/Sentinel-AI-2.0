@@ -27,24 +27,24 @@ export default function App() {
   }, [])
 
   return (
-    <div className={styles.app}>
+    <div className="app">
       
       {/* LEFT SIDEBAR */}
-      <aside className={styles.sidebar}>
-        <div className={styles.logo}>
-          <span className={styles.logoDot} />
+      <aside className="sidebar">
+        <div className="logo">
+          <span className="logo-dot" />
           Sentinel AI
         </div>
 
-        <nav className={styles.navItems}>
+        <nav className="nav-items">
           {TABS.map(t => (
             <NavTab key={t.id} id={t.id} active={page} setPage={setPage} icon={t.icon} label={t.label} />
           ))}
         </nav>
         
-        <div className={styles.sidebarBottom}>
-           <div className={styles.liveBadge}>
-            <span className={styles.liveDot} />
+        <div className="sidebar-bottom">
+           <div className="live-badge">
+            <span className="live-dot" />
             Live Network
           </div>
           <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text3)', textAlign: 'center' }}>
@@ -54,10 +54,10 @@ export default function App() {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <div className={styles.mainContent}>
+      <div className="main-content">
         
         {/* TOP BAR */}
-        <header className={styles.topBar}>
+        <header className="top-bar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
              <i className="ti ti-map-pin" style={{ color: 'var(--gold)' }}></i>
              <select 
@@ -103,7 +103,7 @@ export default function App() {
         </header>
 
         {/* PAGE RENDERER */}
-        <main className={styles.main}>
+        <main className="main-area">
           {page === 'dashboard'    && <Feed />}
           {page === 'predictions'  && <Trends />}
           {page === 'heatmap'      && <Heatmap />}
