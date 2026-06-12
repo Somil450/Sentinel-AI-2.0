@@ -5,7 +5,6 @@ import ReportForm from './pages/ReportForm'
 import Trends from './pages/Trends'
 import Intelligence from './pages/Intelligence'
 import { useLocation } from './context/LocationContext'
-import styles from './App.module.css'
 
 const TABS = [
   { id: 'dashboard',    icon: 'ti-layout-dashboard', label: 'Signal Feed' },
