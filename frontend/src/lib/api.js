@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 
-const BASE = '/api';
+// In dev: Vite proxy forwards /api → localhost:8000
+// In prod: VITE_API_BASE points to the Railway backend URL
+const BASE = (import.meta.env.VITE_API_BASE || '') + '/api';
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(BASE + path, {
