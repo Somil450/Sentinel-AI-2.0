@@ -1,6 +1,80 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '../lib/api'
 import { useLocation } from '../context/LocationContext'
+import ReportChatModal from '../components/ReportChatModal'
+
+function HackerTerminal({ district }) {
+  const [logs, setLogs] = useState([]);
+  const terminalRef = useRef(null);
+
+  useEffect(() => {
+    let timeoutId;
+    const diseases = ["DENGUE", "MALARIA", "TYPHOID", "NIPAH_V", "ZIKA", "CHOLERA", "UNKNOWN_PATHOGEN"];
+    const sysCodes = ["SYS.INTERCEPT", "NET.TRACE", "SEC.ANOMALY", "BIO.VERIFY", "DATA.LINK", "NODE.WARN"];
+    
+    // Generate staggered past logs so it doesn't look like they all happened at the exact same millisecond
+    const initialLogs = Array.from({ length: 6 }).map((_, i) => {
+      const pastTime = new Date(Date.now() - (6 - i) * 2300).toISOString().substring(11, 19);
+      const hex = Math.random().toString(16).substring(2, 10).toUpperCase();
+      return `[${pastTime}] NET.LINK: Established secure connection to node 0x${hex}`;
+    });
+    
+    setLogs(initialLogs);
+
+    const generateLog = () => {
+      const d = diseases[Math.floor(Math.random() * diseases.length)];
+      const code = sysCodes[Math.floor(Math.random() * sysCodes.length)];
+      const loc = district || "UNKNOWN_SEC";
+      const ip = `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*10)}.${Math.floor(Math.random()*255)}`;
+      const hex = Math.random().toString(16).substring(2, 10).toUpperCase();
+      
+      const templates = [
+        `[${new Date().toISOString().substring(11, 19)}] ${code}: ${d} vector flagged at [${loc}] via ${ip}`,
+        `[${new Date().toISOString().substring(11, 19)}] ${code}: Decrypting bio-metric payload from node 0x${hex}...`,
+        `[${new Date().toISOString().substring(11, 19)}] SYS.ROUTING: Redirecting packet trace for ${loc} cluster.`,
+        `[${new Date().toISOString().substring(11, 19)}] ${code}: Alert threshold exceeded. Pathogen: ${d}. Confidence: ${(Math.random() * 20 + 70).toFixed(2)}%`,
+        `[${new Date().toISOString().substring(11, 19)}] NET.TRACE: Ping 0x${hex} -> ACK. Awaiting sequence validation...`
+      ];
+      
+      const newLog = templates[Math.floor(Math.random() * templates.length)];
+      
+      setLogs(prev => {
+        const next = [...prev, newLog];
+        if (next.length > 25) next.shift();
+        return next;
+      });
+
+      // Variable interval for organic "burst" feeling (between 400ms and 3000ms)
+      const nextDelay = Math.random() * 2600 + 400;
+      timeoutId = setTimeout(generateLog, nextDelay);
+    };
+
+    timeoutId = setTimeout(generateLog, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [district]);
+
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [logs]);
+
+  return (
+    <div className="glass-card" style={{ padding: '16px', background: '#050a08', border: '1px solid #1a3322' }}>
+      <h4 style={{ margin: 0, color: '#00ffcc', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #1a3322', paddingBottom: '8px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <i className="ti ti-terminal" style={{ animation: 'pulse 1.5s infinite' }} /> SECURE INTEL STREAM
+      </h4>
+      <div 
+        ref={terminalRef}
+        style={{ height: '180px', overflowY: 'hidden', color: '#00ffcc', fontFamily: '"Fira Code", monospace', fontSize: '10.5px', display: 'flex', flexDirection: 'column', gap: '5px', textShadow: '0 0 4px rgba(0,255,204,0.4)' }}
+      >
+        {logs.map((log, i) => (
+          <div key={i} style={{ opacity: i === logs.length - 1 ? 1 : 0.7 }}>{log}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Feed() {
   const { district } = useLocation()
@@ -11,15 +85,17 @@ export default function Feed() {
   const [filterSeverity, setFilterSeverity] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [votes, setVotes] = useState({}) // Store upvotes/downvotes locally for interactive feel
+  const [activeChatReport, setActiveChatReport] = useState(null)
 
   const loadFeed = async () => {
     try {
       setLoading(true)
       // Fetch recent reports (limit to 100 to calculate correlations)
-      const data = await api.getRecentReports(100)
+      // Pass the selected district so the backend (or mock generator) returns the correct regional data
+      const data = await api.getRecentReports(100, district)
       setAllReports(data)
       
-      // Filter by district if selected
+      // Filter by district if selected (acts as a safety check)
       const filtered = district ? data.filter(r => r.district === district) : data
       setReports(filtered)
       setError(null)
@@ -373,6 +449,34 @@ export default function Feed() {
                       >
                         <i className="ti ti-info-circle" /> Detail Metadata
                       </button>
+                      <button 
+                        onClick={() => setActiveChatReport(r)}
+                        style={{
+                          background: 'rgba(212, 175, 55, 0.1)',
+                          border: '1px solid var(--gold)',
+                          color: 'var(--gold)',
+                          fontSize: '11px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          transition: 'all 0.2s',
+                          boxShadow: '0 0 10px rgba(212, 175, 55, 0.2)'
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = 'rgba(212, 175, 55, 0.2)'
+                          e.currentTarget.style.boxShadow = '0 0 15px rgba(212, 175, 55, 0.4)'
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = 'rgba(212, 175, 55, 0.1)'
+                          e.currentTarget.style.boxShadow = '0 0 10px rgba(212, 175, 55, 0.2)'
+                        }}
+                      >
+                        <i className="ti ti-messages" /> Live Discussion
+                      </button>
                     </div>
                   </div>
 
@@ -470,7 +574,18 @@ export default function Feed() {
           )}
         </div>
 
+        {/* HACKER TERMINAL */}
+        <HackerTerminal district={district} />
+
       </div>
+
+      {/* RENDER CHAT MODAL IF ACTIVE */}
+      {activeChatReport && (
+        <ReportChatModal 
+          report={activeChatReport} 
+          onClose={() => setActiveChatReport(null)} 
+        />
+      )}
 
     </div>
   )

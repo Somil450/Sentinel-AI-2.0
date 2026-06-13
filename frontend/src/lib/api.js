@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, isMock } from './supabase';
 
 // In dev: Vite proxy forwards /api → localhost:8000
 // In prod: VITE_API_BASE points to the Railway backend URL
@@ -26,6 +26,28 @@ export const api = {
 
   /** Get all signals from Supabase */
   getSignals: async (district = null) => {
+    if (isMock) {
+      const loc = district || 'New Delhi';
+      const pool = ['Nipah Virus', 'Cholera', 'Dengue', 'Malaria', 'Typhoid', 'COVID-19', 'Common Cold', 'Food Poisoning', 'Hepatitis A'];
+      
+      return Array.from({ length: 5 }).map((_, i) => {
+        const disease = pool[Math.floor(Math.random() * pool.length)];
+        const confidence = Math.floor(Math.random() * 60) + 30;
+        return {
+          id: `mock-sig-${i}`,
+          name: `${disease} · ${loc}`,
+          district: loc,
+          confidence,
+          status: confidence >= 80 ? 'strong' : confidence >= 50 ? 'emerging' : 'noise',
+          report_count: Math.floor(Math.random() * 20) + 1,
+          sources: ['user reports', 'trend signals'],
+          symptoms: [disease.toLowerCase(), 'fever'],
+          created_at: new Date().toISOString(),
+          last_updated: new Date().toISOString(),
+          h3_hex: '873e80000ffffff'
+        };
+      });
+    }
     let query = supabase.from('signals_data').select('*');
     if (district) query = query.eq('district', district);
     const { data, error } = await query;
@@ -47,7 +69,19 @@ export const api = {
   },
 
   /** Get heatmap data by adapting signals_data */
-  getHeatmap: async () => {
+  getHeatmap: async (district = null) => {
+    if (isMock) {
+      const loc = district || 'New Delhi';
+      const pool = ['Nipah Virus', 'Cholera', 'Dengue', 'Malaria', 'Typhoid', 'COVID-19', 'Common Cold', 'Food Poisoning', 'Hepatitis A'];
+      
+      return Array.from({ length: 8 }).map((_, i) => ({
+        hex_id: i % 2 === 0 ? '873e80000ffffff' : '873e80001ffffff',
+        district: loc,
+        confidence: Math.floor(Math.random() * 80) + 20,
+        report_count: Math.floor(Math.random() * 15) + 1,
+        dominant_symptom: pool[Math.floor(Math.random() * pool.length)]
+      }));
+    }
     const { data, error } = await supabase.from('signals_data').select('*');
     if (error) throw error;
     return data.map(s => ({
@@ -64,6 +98,13 @@ export const api = {
 
   /** Get dashboard stats */
   getStats: async () => {
+    if (isMock) {
+      return {
+        active_signals: 2, genuine_count: 2, noise_count: 0,
+        total_reports_24h: 17, spam_blocked: 0, top_confidence: 85,
+        alert_triggered: true, trends_score: 85
+      };
+    }
     const { count: reportCount } = await supabase.from('reports_data').select('*', { count: 'exact', head: true });
     const { data: signals } = await supabase.from('signals_data').select('*');
     
@@ -86,6 +127,40 @@ export const api = {
 
   /** Get recent anonymous reports from Supabase */
   getRecentReports: async (limit = 20, district = null) => {
+    if (isMock) {
+      const loc = district || 'New Delhi';
+      const diseasePool = [
+        { name: 'Nipah Virus', symptoms: ['fever', 'headache', 'confusion'], severity: 'severe' },
+        { name: 'Cholera', symptoms: ['diarrhea', 'vomiting', 'dehydration'], severity: 'severe' },
+        { name: 'Dengue', symptoms: ['fever', 'joint pain', 'rash'], severity: 'severe' },
+        { name: 'Malaria', symptoms: ['fever', 'chills', 'sweat'], severity: 'moderate' },
+        { name: 'Common Cold', symptoms: ['runny nose', 'sneezing', 'mild cough'], severity: 'mild' },
+        { name: 'Food Poisoning', symptoms: ['nausea', 'vomiting', 'cramps'], severity: 'mild' },
+        { name: 'Typhoid', symptoms: ['fever', 'stomach pain', 'weakness'], severity: 'moderate' },
+        { name: 'COVID-19', symptoms: ['cough', 'fever', 'loss of smell'], severity: 'severe' },
+        { name: 'Chikungunya', symptoms: ['fever', 'joint pain', 'fatigue'], severity: 'moderate' },
+        { name: 'Hepatitis A', symptoms: ['fatigue', 'jaundice', 'stomach pain'], severity: 'severe' }
+      ];
+      
+      return Array.from({ length: 18 }).map((_, i) => {
+        const d = diseasePool[Math.floor(Math.random() * diseasePool.length)];
+        return {
+          anon_id: `MOCK-${Math.floor(Math.random()*10000)}`, 
+          district: loc, 
+          state: 'Local State', 
+          hex_id: `873e80${Math.floor(Math.random()*1000)}ffffff`, 
+          h3_hex: `873e80${Math.floor(Math.random()*1000)}ffffff`, 
+          lat: 20 + Math.random() * 5, 
+          lon: 75 + Math.random() * 5, 
+          symptoms: d.symptoms, 
+          timestamp: new Date(Date.now() - Math.random() * 86400000).toISOString(), 
+          severity: d.severity, 
+          duration: `${Math.floor(Math.random() * 5 + 1)} days`, 
+          trust_score: 0.4 + Math.random() * 0.55, 
+          probable_disease: d.name
+        };
+      });
+    }
     let query = supabase
       .from('reports_data')
       .select('*')
@@ -130,6 +205,32 @@ export const api = {
 
   /** Get live Google Trends scores from Supabase */
   getTrends: async (district = null) => {
+    if (isMock) {
+      const allMocks = [
+        { id: 1, keyword: 'fever symptoms', related_disease: 'Viral', normalized_score: 0.85, district: 'Bhopal' },
+        { id: 2, keyword: 'fever symptoms', related_disease: 'Viral', normalized_score: 0.65, district: 'New Delhi' },
+        { id: 3, keyword: 'fever symptoms', related_disease: 'Viral', normalized_score: 0.45, district: 'Mumbai' },
+        { id: 4, keyword: 'malaria treatment', related_disease: 'Malaria', normalized_score: 0.70, district: 'Mumbai' },
+        { id: 5, keyword: 'dengue test near me', related_disease: 'Dengue', normalized_score: 0.90, district: 'Bhopal' },
+        { id: 6, keyword: 'dengue test near me', related_disease: 'Dengue', normalized_score: 0.80, district: 'New Delhi' }
+      ];
+      
+      let filtered = allMocks;
+      if (district) {
+        filtered = allMocks.filter(m => m.district === district);
+      }
+      
+      const avgScore = filtered.length 
+        ? Math.round(filtered.reduce((sum, item) => sum + (item.normalized_score * 100), 0) / filtered.length)
+        : 50;
+
+      return { 
+        trends_score: avgScore, 
+        keywords: filtered, 
+        geo: district || "India", 
+        source: "Mock Data (Connect backend for Live Google Trends)" 
+      };
+    }
     let query = supabase.from('trends_data').select('*');
     if (district) {
       query = query.eq('district', district);
@@ -152,6 +253,7 @@ export const api = {
 
   /** Get WHO/IDSP ground truth data from Supabase */
   getGroundTruth: async (district = null) => {
+    if (isMock) return { idsp_records: [], source: "Mock IDSP Data", coverage: district || "All Districts" };
     let query = supabase.from('who_idsp_groundtruth').select('*');
     if (district) query = query.eq('district', district);
     const { data, error } = await query;
@@ -166,6 +268,7 @@ export const api = {
 
   /** Get disease profiles */
   getDiseaseProfiles: async () => {
+    if (isMock) return [{ name: 'Dengue', current_threat_level: 8, severity: 7 }];
     const { data, error } = await supabase.from('disease_profiles').select('*');
     if (error) throw error;
     return data;

@@ -3,14 +3,18 @@ import Feed from './pages/Feed'
 import Heatmap from './pages/Heatmap'
 import ReportForm from './pages/ReportForm'
 import Trends from './pages/Trends'
+import Predictor from './pages/Predictor'
 import Intelligence from './pages/Intelligence'
 import { useLocation } from './context/LocationContext'
+import ReportChatModal from './components/ReportChatModal'
+import DoctorAgentModal from './components/DoctorAgentModal'
 
 const TABS = [
   { id: 'dashboard',    icon: 'ti-layout-dashboard', label: 'Signal Feed' },
   { id: 'heatmap',      icon: 'ti-map-2',            label: 'Map View' },
   { id: 'intelligence', icon: 'ti-shield-lock',      label: 'Intelligence' },
   { id: 'predictions',  icon: 'ti-trending-up',      label: 'Trends' },
+  { id: 'predictor',    icon: 'ti-stethoscope',      label: 'Symptom Predictor' },
 ]
 
 export default function App() {
@@ -20,6 +24,10 @@ export default function App() {
   
   // Submit modal state
   const [showReportModal, setShowReportModal] = useState(false)
+  
+  // Global chat state
+  const [showGlobalChat, setShowGlobalChat] = useState(false)
+  const [showDoctorAgent, setShowDoctorAgent] = useState(false)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -83,6 +91,34 @@ export default function App() {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <button 
+               onClick={() => setShowGlobalChat(true)}
+               style={{
+                 background: 'rgba(212, 175, 55, 0.1)',
+                 color: 'var(--gold)',
+                 border: '1px solid var(--gold)',
+                 padding: '10px 20px',
+                 borderRadius: '8px',
+                 fontWeight: 600,
+                 display: 'flex',
+                 alignItems: 'center',
+                 gap: '8px',
+                 transition: 'all 0.2s',
+                 boxShadow: '0 0 10px rgba(212, 175, 55, 0.2)'
+               }}
+               onMouseEnter={e => {
+                 e.currentTarget.style.background = 'rgba(212, 175, 55, 0.2)'
+                 e.currentTarget.style.boxShadow = '0 0 15px rgba(212, 175, 55, 0.4)'
+               }}
+               onMouseLeave={e => {
+                 e.currentTarget.style.background = 'rgba(212, 175, 55, 0.1)'
+                 e.currentTarget.style.boxShadow = '0 0 10px rgba(212, 175, 55, 0.2)'
+               }}
+            >
+               <i className="ti ti-messages" style={{ fontSize: '18px' }} />
+               {district ? `${district} Intel Chat` : 'Global Intel Chat'}
+            </button>
+
+            <button 
                onClick={() => setShowReportModal(true)}
                style={{
                  background: 'var(--gold)',
@@ -105,6 +141,7 @@ export default function App() {
         {/* PAGE RENDERER */}
         <main className="main-area">
           {page === 'dashboard'    && <Feed />}
+          {page === 'predictor'    && <Predictor />}
           {page === 'predictions'  && <Trends />}
           {page === 'heatmap'      && <Heatmap />}
           {page === 'intelligence' && <Intelligence />}
@@ -135,7 +172,7 @@ export default function App() {
         style={{
           position: 'fixed',
           bottom: '32px',
-          right: '32px',
+          right: '108px',
           width: '56px',
           height: '56px',
           borderRadius: '50%',
@@ -165,6 +202,52 @@ export default function App() {
       >
         <i className="ti ti-plus" />
       </button>
+
+      {/* Floating AI Doctor Button */}
+      <button
+        onClick={() => setShowDoctorAgent(true)}
+        style={{
+          position: 'fixed', bottom: '32px', right: '32px',
+          background: 'linear-gradient(135deg, rgba(0, 255, 204, 0.2) 0%, rgba(0, 255, 204, 0.05) 100%)',
+          border: '1px solid rgba(0, 255, 204, 0.4)',
+          width: '56px', height: '56px', borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#00ffcc', fontSize: '24px', cursor: 'pointer', zIndex: 999,
+          boxShadow: '0 8px 32px rgba(0, 255, 204, 0.2), inset 0 0 20px rgba(0,255,204,0.1)',
+          backdropFilter: 'blur(8px)',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.transform = 'scale(1.1) translateY(-4px)';
+          e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 255, 204, 0.4), inset 0 0 20px rgba(0,255,204,0.2)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.transform = 'scale(1) translateY(0)';
+          e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 255, 204, 0.2), inset 0 0 20px rgba(0,255,204,0.1)';
+        }}
+        title="Ask Sentinel Medical AI"
+      >
+        <i className="ti ti-robot" />
+      </button>
+
+      {/* GLOBAL CHAT MODAL */}
+      {showGlobalChat && (
+        <ReportChatModal 
+          report={{ 
+            anon_id: district ? `REGION-${district}` : 'GLOBAL', 
+            probable_disease: district ? 'Regional Activity' : 'Network', 
+            district: district || 'All Regions' 
+          }} 
+          onClose={() => setShowGlobalChat(false)} 
+        />
+      )}
+
+      {showDoctorAgent && (
+        <DoctorAgentModal
+          district={district}
+          onClose={() => setShowDoctorAgent(false)}
+        />
+      )}
     </div>
   )
 }

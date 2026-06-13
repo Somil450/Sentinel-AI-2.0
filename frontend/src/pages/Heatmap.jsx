@@ -6,7 +6,7 @@ import Map from 'react-map-gl/maplibre'
 import DeckGL from '@deck.gl/react'
 import { H3HexagonLayer } from '@deck.gl/geo-layers'
 import { FlyToInterpolator } from '@deck.gl/core'
-import { cellToLatLng } from 'h3-js'
+import { cellToLatLng, latLngToCell } from 'h3-js'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 // Dark matter style for a sleek dark mode map
@@ -117,23 +117,32 @@ export default function Heatmap() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  const loadData = async () => {
-    try {
-      setLoading(true)
-      const [heatmap, tl] = await Promise.all([api.getHeatmap(), api.getTimeline()])
-      setHexData(heatmap)
-      setTimeline(tl)
-      setCurrentFrameIdx(tl.length - 1)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true)
+        const [heatmap, tl] = await Promise.all([api.getHeatmap(district), api.getTimeline()])
+        
+        // Dynamic Mock Hex Fix: If the backend sent the hardcoded New Delhi hexes, 
+        // convert them to valid local H3 hexes based on the currently selected district's coordinates
+        if (heatmap.length > 0 && heatmap[0].hex_id === '873e80000ffffff') {
+          const fallback = DISTRICT_COORDS[district || 'New Delhi'] || DISTRICT_COORDS['New Delhi'];
+          heatmap[0].hex_id = latLngToCell(fallback[0], fallback[1], 7);
+          heatmap[1].hex_id = latLngToCell(fallback[0] + 0.03, fallback[1] + 0.03, 7);
+        }
+        
+        setHexData(heatmap)
+        setTimeline(tl)
+        setCurrentFrameIdx(tl.length - 1)
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
     loadData()
-  }, [])
+  }, [district])
 
   // Zoom map view based on the selected location district context
   useEffect(() => {
