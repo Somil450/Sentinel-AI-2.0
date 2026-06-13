@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import mqtt from 'mqtt';
 
 // Generate a random anonymous codename (similar to 'Rogue-Relay-475')
@@ -140,7 +141,7 @@ export default function ReportChatModal({ report, onClose }) {
     }
   };
 
-  return (
+  return createPortal(
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
@@ -407,6 +408,7 @@ export default function ReportChatModal({ report, onClose }) {
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

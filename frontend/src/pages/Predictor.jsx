@@ -228,7 +228,25 @@ export default function Predictor() {
         riskLevel = 'Low';
       }
       
-      const confidenceStr = maxScore > 0 ? totalMatchScore.toFixed(2) + '%' : '64.20%';
+      if (maxScore === 0) {
+        setResult({
+          disease: "Insufficient Data",
+          data: {
+            description: "No specific pathogen could be identified from the provided symptoms. Please provide more detailed medical symptoms or use the Sentinel Medical AI for advanced analysis.",
+            cures: ["Provide more specific symptoms.", "Use the AI Agent for generative diagnosis."],
+            hospitals: []
+          },
+          confidence: "0.00%",
+          caseCount: 0,
+          riskLevel: 'Low',
+          location: loc
+        });
+        setIsAnalyzing(false);
+        document.body.classList.remove('code-red');
+        return;
+      }
+
+      const confidenceStr = totalMatchScore.toFixed(2) + '%';
 
       setResult({
         disease: predictedDisease,

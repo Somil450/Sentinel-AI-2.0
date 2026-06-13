@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api';
 import { isMock } from '../lib/supabase';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
+// Initialize Gemini
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 export default function DoctorAgentModal({ district, onClose }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -23,14 +26,7 @@ export default function DoctorAgentModal({ district, onClose }) {
         const signals = await api.getSignals(district);
         const topSignal = signals.sort((a, b) => b.confidence - a.confidence)[0];
         
-        let greeting = `Hello. I am the Sentinel Medical AI. `;
-        if (topSignal && topSignal.confidence > 50 && !isMock) {
-          setActiveDisease(topSignal.symptoms[0] || 'unknown infections');
-          greeting += `I see you are in **${district || 'this region'}**, where our sensors have detected a high risk of **${topSignal.symptoms[0] || 'an outbreak'}**. `;
-        } else {
-          greeting += `I am monitoring the live health network in **${district || 'your region'}**. `;
-        }
-        greeting += `\n\nPlease describe your symptoms, or upload a recent lab report/prescription for analysis.`;
+        let greeting = `Hello. I am the Sentinel Medical AI. I provide unbiased, rigorous symptom analysis using our global medical matrix.\n\nPlease describe your symptoms, or upload a recent lab report/prescription for analysis.`;
 
         setTimeout(() => {
           setMessages([{ id: 'msg-0', type: 'ai', text: greeting, isGreeting: true }]);
@@ -50,134 +46,71 @@ export default function DoctorAgentModal({ district, onClose }) {
   const callMockAI = async (userText, isFile = false) => {
     setIsTyping(true);
     
-    const input = userText.toLowerCase();
-    let diagnosis = "";
+    let diagnosis = "Analyzing...";
     let cures = "N/A";
     let precautions = "N/A";
-    let realDoctors = "";
+    let realDoctors = "fetching";
     
     // Extract Hyper-Local Area (e.g. "hospitals near TT Nagar")
     let targetLocation = district || 'India';
-    const nearMatch = input.match(/near\s+([a-z0-9\s]+)(?:$|\.|\,)/i);
-    const inMatch = input.match(/in\s+([a-z0-9\s]+)(?:$|\.|\,)/i);
+    // Use word boundaries \b to avoid matching "in" inside other words, or matching body parts
+    const nearMatch = userText.toLowerCase().match(/\bnear\s+([a-z0-9\s]+)(?:$|\.|\,)/i);
+    const inMatch = userText.toLowerCase().match(/\bin\s+((?!my|the|my\s|this\s)[a-z0-9\s]+)(?:$|\.|\,)/i);
     
     if (nearMatch && nearMatch[1] && nearMatch[1].trim() !== 'me') {
       targetLocation = `${nearMatch[1].trim()}, ${district || ''}`;
     } else if (inMatch && inMatch[1] && inMatch[1].trim() !== 'me') {
-      targetLocation = `${inMatch[1].trim()}, ${district || ''}`;
-    }
-
-    // Comprehensive Diagnostic Matrix
-    const diseaseMatrix = {
-      "Nipah Virus": {
-        symptoms: ["fever", "headache", "drowsiness", "disorientation", "confusion", "coma", "brain", "bat"],
-        cures: "- Immediate intensive supportive care.\n- Strict quarantine.\n- High-calorie liquid diet via IV if comatose.",
-        precautions: "- Highly lethal. Avoid exposure to bats and sick pigs.\n- Do not consume raw date palm sap."
-      },
-      "Cholera": {
-        symptoms: ["diarrhea", "vomiting", "cramps", "dehydration", "watery", "stomach", "thirst", "leg"],
-        cures: "- **Strict Diet:** Oral Rehydration Salts (ORS) only for first 24h. Then bland foods (rice, bananas).\n- Intravenous fluids for severe cases.",
-        precautions: "- Drink ONLY boiled or bottled water.\n- Severe dehydration can be fatal within hours."
-      },
-      "Dengue": {
-        symptoms: ["fever", "pain", "joint", "rash", "eye", "bleeding", "headache"],
-        cures: "- **Diet Plan:** Drink 3-4 liters of fluids daily. Fresh papaya leaf extract, coconut water, and pomegranate juice to boost platelets.\n- Take Paracetamol for fever.",
-        precautions: "- **CRITICAL:** DO NOT take Ibuprofen or Aspirin. They increase internal bleeding risk."
-      },
-      "Malaria": {
-        symptoms: ["fever", "chills", "sweat", "shivering", "vomiting", "nausea", "parasite"],
-        cures: "- **Diet Plan:** High-protein, high-carb diet to recover muscle loss. Hot soups and boiled vegetables.\n- Antimalarial drugs as prescribed after blood smear.",
-        precautions: "- Do not self-medicate with antibiotics.\n- Use mosquito nets to prevent re-infection."
-      },
-      "Typhoid": {
-        symptoms: ["fever", "stomach", "weakness", "diarrhea", "constipation", "appetite"],
-        cures: "- **Diet Plan:** Bland, boiled foods ONLY (mashed potatoes, boiled rice, yogurt). Avoid all fiber and spices.\n- Antibiotics strictly as prescribed.",
-        precautions: "- Highly contagious through contaminated food/water. Wash hands frequently."
-      },
-      "Common Cold / Mild Infection": {
-        symptoms: ["cold", "runny", "nose", "sneezing", "mild", "little", "cough", "throat", "congestion", "fever", "headache"],
-        cures: "- **Diet Plan:** Warm fluids, herbal teas (ginger/honey), and chicken/vegetable soup.\n- Gargle with warm salt water. Rest for 8+ hours.",
-        precautions: "- Avoid cold drinks, ice cream, and dairy (increases mucus).\n- Wash hands frequently to protect your family."
-      },
-      "Food Poisoning": {
-        symptoms: ["nausea", "vomit", "stomach", "cramp", "diarrhea", "fever", "eat", "food"],
-        cures: "- **Diet Plan:** BRAT Diet (Bananas, Rice, Applesauce, Toast). Clear broths and electrolyte water.\n- Rest the stomach.",
-        precautions: "- Avoid all dairy, caffeine, alcohol, and spicy foods until fully recovered."
-      },
-      "a Severe Viral Infection (like COVID/Flu)": {
-        symptoms: ["cough", "throat", "smell", "taste", "breath", "sneezing", "nose", "chest"],
-        cures: "- **Diet Plan:** Vitamin C and Zinc rich foods (citrus fruits, nuts). High protein meals.\n- Steam inhalation with eucalyptus.",
-        precautions: "- Isolate yourself to prevent spreading.\n- Wear an N95 mask if around others."
-      }
-    };
-
-    let maxScore = 0;
-    let predictedDisease = "Common Cold / Mild Infection"; // Safe fallback
-    
-    // Rigorous Scoring
-    const inputWords = input.toLowerCase().split(/[\s,]+/);
-    for (const [disease, data] of Object.entries(diseaseMatrix)) {
-      let score = 0;
-      data.symptoms.forEach(sym => {
-        // Use whole word boundary matching to avoid "cold" matching inside other words
-        const regex = new RegExp(`\\b${sym}\\b`, 'i');
-        if (regex.test(input)) score += 5;
-      });
-      if (score > maxScore) {
-        maxScore = score;
-        predictedDisease = disease;
+      // Basic filter to ignore things like "in head", "in stomach"
+      const matched = inMatch[1].trim();
+      if (!['head', 'stomach', 'leg', 'arm', 'chest', 'body', 'eye', 'ear', 'throat'].includes(matched)) {
+        targetLocation = `${matched}, ${district || ''}`;
       }
     }
 
-    // FLOW 1: Awaiting Weight for Fat Loss
-    if (aiState.awaitingWeight) {
-      setAiState({ awaitingWeight: false }); // Reset state
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const prompt = `You are the Sentinel Medical AI, an advanced, highly confident diagnostic system. The user's location is ${targetLocation}. 
+      The user says: "${userText}". 
+      If the user is uploading a file (isFile=${isFile}), they are sharing a medical report.
       
-      diagnosis = `Thank you for the details. Based on your current stats, healthy and sustainable fat loss is completely achievable without any medicines.`;
-      cures = `- Caloric Deficit: Aim for a 300-500 calorie deficit daily.\n- High Protein Diet: Include eggs, lentils, chicken, or paneer in every meal.\n- Hydration: Drink 3-4 liters of water daily.\n- Exercise: 45 minutes of brisk walking or weight lifting 4 times a week.`;
-      precautions = `- Avoid sugary drinks and processed foods completely.\n- Do not crash diet or starve yourself.\n- Consult a real, local nutritionist in ${district || 'your city'} before making drastic changes.`;
-    
-    // FLOW 2: User asks about fat loss or diet
-    } else if (input.includes('fat') || input.includes('weight') || input.includes('lose') || input.includes('diet')) {
-      setAiState({ awaitingWeight: true });
-      diagnosis = "I can certainly help you with a diet plan for fat loss. However, to provide accurate and safe details, could you please tell me your current weight and height?";
-      cures = "N/A";
-      precautions = "N/A";
+      CRITICAL INSTRUCTIONS:
+      Do NOT give generic "non-specific symptoms" disclaimers. Do NOT just say "consult a doctor". 
+      Provide a rigorous, highly specific differential diagnosis. State the top 2-3 most likely specific diseases/conditions based on their symptoms.
+      
+      Provide a response formatted STRICTLY into three sections. 
+      Start with EXACTLY "DIAGNOSIS:", then "CURES:", then "PRECAUTIONS:". 
+      
+      For DIAGNOSIS: Provide a sharp, confident analysis. Name the specific diseases.
+      For CURES: Provide highly specific, actionable medical/dietary recommendations targeted to the top diagnosis.
+      For PRECAUTIONS: Provide strict, specific medical warnings and exact symptoms to watch out for.
+      
+      If the user types random letters or gibberish, just return the DIAGNOSIS section saying you could not understand. 
+      Keep the answers concise. 
+      CRITICAL: You MUST format the CURES and PRECAUTIONS sections exclusively as markdown bullet points (e.g. "- Point 1\\n- Point 2"). Do not use paragraphs for CURES or PRECAUTIONS. Do not include your own headings like "## Diagnosis", just use exactly "DIAGNOSIS:" etc.`;
 
-    // FLOW 3: File Upload
-    } else if (isFile) {
-      const disease = activeDisease || 'dengue';
-      diagnosis = `I have analyzed the uploaded medical report. The markers show significant elevation. Given the active **${disease}** outbreak in ${district || 'your city'}, this strongly correlates with early-stage ${disease}.`;
-      cures = `- Immediate fluid replacement (Oral Rehydration Salts).\n- Eat easily digestible foods like plain rice, bananas, and toast.\n- Drink papaya leaf extract to help boost platelets.`;
-      precautions = `- **DO NOT** take Ibuprofen or Aspirin. Use Paracetamol only.\n- Seek immediate emergency care if you experience severe abdominal pain.`;
-      realDoctors = "fetching";
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
+      
+      const dMatch = responseText.match(/DIAGNOSIS:\s*([\s\S]*?)(?:CURES:|PRECAUTIONS:|$)/i);
+      const cMatch = responseText.match(/CURES:\s*([\s\S]*?)(?:PRECAUTIONS:|$)/i);
+      const pMatch = responseText.match(/PRECAUTIONS:\s*([\s\S]*?)(?:$)/i);
 
-    // FLOW 4: General Disease / Symptoms / Doctors
-    } else if (maxScore > 0 || input.includes('disease') || input.includes('doctor') || input.includes('hospital') || input.includes('fever') || input.includes('pain') || input.includes(activeDisease?.toLowerCase() || 'dengue')) {
-      const diseaseName = predictedDisease || activeDisease || 'a viral infection';
-      const matrixData = diseaseMatrix[diseaseName] || diseaseMatrix["a Severe Viral Infection (like COVID/Flu)"];
+      if (dMatch && dMatch[1].trim()) diagnosis = dMatch[1].trim();
+      else diagnosis = "I am a Medical AI. I provide symptom analysis and can locate real clinics near you. Please describe your symptoms clearly.";
       
-      // Exact local data calculation based on string hash to make it realistic
-      const caseCount = (diseaseName.length * 4) + (targetLocation.length % 7) + 12;
-      const riskLevel = caseCount > 25 ? 'High' : 'Moderate';
-      
-      diagnosis = `Based on your specific symptoms, my medical matrix predicts you are likely experiencing **${diseaseName}**. \n\nWe are currently tracking exactly **${caseCount} active cases** of this in ${targetLocation.toUpperCase()}, indicating a **${riskLevel}** community risk level.`;
-      cures = matrixData.cures;
-      precautions = matrixData.precautions;
-      realDoctors = "fetching";
-    
-    // FLOW 5: Generic Fallback
-    } else {
-      diagnosis = `I understand you need medical support. As an AI, I do not prescribe medicines, but I can provide diet, precautions, and recommend local doctors.`;
-      cures = `- Maintain a balanced diet rich in vegetables and lean proteins.\n- Stay hydrated and get at least 7-8 hours of sleep.`;
-      precautions = `- If you are experiencing severe or sudden symptoms, please visit the nearest hospital emergency room in ${district || 'your city'}.`;
+      if (cMatch && cMatch[1].trim()) cures = cMatch[1].trim();
+      if (pMatch && pMatch[1].trim()) precautions = pMatch[1].trim();
+
+    } catch (err) {
+      console.error(err);
+      diagnosis = "I am currently experiencing connectivity issues with the global medical matrix. Please try again.";
     }
 
     // Fetch REAL doctors/clinics from OpenStreetMap
     if (realDoctors === "fetching") {
       try {
-        // Query for hospitals OR clinics
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=clinic+OR+hospital+in+${encodeURIComponent(targetLocation)}&format=json&limit=3`);
+        // Query for hospitals directly without confusing OSM with 'OR' operators
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=hospital+${encodeURIComponent(targetLocation)}&format=json&limit=3`);
         const data = await res.json();
         if (data && data.length > 0) {
           const docList = data.map((d, i) => {

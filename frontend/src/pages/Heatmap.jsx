@@ -149,7 +149,22 @@ export default function Heatmap() {
     if (!district) return
 
     const zoomToDistrict = async () => {
-      // 1. Try to find coordinates from currently loaded hexes
+      // 1. PERFECT EXACT CENTERING: Use hardcoded exact city center if available
+      const exactCenter = DISTRICT_COORDS[district]
+      if (exactCenter) {
+        setViewState({
+          longitude: exactCenter[1],
+          latitude: exactCenter[0],
+          zoom: 8.5,
+          pitch: 45,
+          bearing: -10,
+          transitionDuration: 1200,
+          transitionInterpolator: new FlyToInterpolator()
+        })
+        return
+      }
+
+      // 2. Fallback to currently loaded hexes
       const match = hexData.find(h => h.district?.toLowerCase() === district.toLowerCase())
       if (match && match.hex_id) {
         try {
@@ -169,7 +184,7 @@ export default function Heatmap() {
         }
       }
 
-      // 2. Try to fetch from reports_data table directly
+      // 3. Final fallback: Try to fetch from reports_data table directly
       try {
         const { data } = await supabase
           .from('reports_data')
@@ -191,20 +206,6 @@ export default function Heatmap() {
         }
       } catch (err) {
         console.error("Supabase coordinate lookup failed", err)
-      }
-
-      // 3. Fallback to coordinate dictionary
-      const fallback = DISTRICT_COORDS[district]
-      if (fallback) {
-        setViewState({
-          longitude: fallback[1],
-          latitude: fallback[0],
-          zoom: 8.5,
-          pitch: 45,
-          bearing: -10,
-          transitionDuration: 1200,
-          transitionInterpolator: new FlyToInterpolator()
-        })
       }
     }
 
